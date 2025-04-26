@@ -1,26 +1,31 @@
-
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import java.util.ArrayList;
-
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
 
 public class MemoryGame {
     class Card {
         String cardName;
         ImageIcon cardImage;
+        String sound;
 
-        Card(String cardName, ImageIcon cardImage) {
+        Card(String cardName, ImageIcon cardImage, String sound) {
             this.cardName = cardName;
             this.cardImage = cardImage;
+            this.sound = sound;
         }
 
         public String toString() {
             return cardName;
         }
-    }
 
+    }
+    
+    private Clip matchSound;
     String[] cardNames = {
             "Brook","Chopper","Frankie","Junbei",
             "Luffy","Nami","Robin","Sanji","Ussop","Zoro"
@@ -55,7 +60,6 @@ public class MemoryGame {
         SetUpcards();
         ShuffleCards();
 
-        //frame.setVisible(true);
         frame.setLayout(new BorderLayout());
         frame.setSize(boardWidth, boardHeight);
         frame.setLocationRelativeTo(null);
@@ -69,8 +73,6 @@ public class MemoryGame {
         textPanel.setPreferredSize(new Dimension(boardWidth, 50));
         textPanel.add(textLabel);
         frame.add(textPanel, BorderLayout.NORTH);
-
-
 
         board = new ArrayList<JButton>();
         boardPanel.setLayout(new GridLayout(rows, columns));
@@ -86,7 +88,7 @@ public class MemoryGame {
                     if (!isFlipping){
                         return;
                     }
-                    JButton cardButton= (JButton) e.getSource();  // Fixed variable name
+                    JButton cardButton= (JButton) e.getSource();
                     if (cardButton.getIcon() == cardBackImage){
                         if (firstCard == null){
                             firstCard = cardButton;
@@ -98,15 +100,20 @@ public class MemoryGame {
                             int index = board.indexOf(secondCard);
                             secondCard.setIcon(cardSet.get(index).cardImage);
                             
-                            if (firstCard.getIcon() != secondCard.getIcon()) {  // Fixed missing parenthesis
+                            if (firstCard.getIcon() != secondCard.getIcon()) {
                                 errorcount += 1;
                                 textLabel.setText("Error: " + Integer.toString(errorcount));
-                                timer.start();  // Fixed variable name
+                                timer.start();
                             }
                             else {
+                                int matchIndex = board.indexOf(firstCard);
+                                String sound = cardSet.get(matchIndex).sound;
+                                
+                                soundPlay(sound);
                                 firstCard = null;
                                 secondCard = null;
                             }
+                            
                         }
                     }
                 }
@@ -144,6 +151,16 @@ public class MemoryGame {
         });
         frame.add(restartButton, BorderLayout.SOUTH);
 
+        // Add window listener to close audio resources
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (matchSound != null) {
+                    matchSound.close();
+                }
+            }
+        });
+
         frame.pack();
         frame.setVisible(true);
 
@@ -152,10 +169,21 @@ public class MemoryGame {
             public void actionPerformed(ActionEvent e){
                 timers();
             }
-            
         });
         timer.setRepeats(false);
         timer.start();
+    }
+
+    void soundPlay(String sound) {
+        try {
+            Clip clip = AudioSystem.getClip();
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(
+                getClass().getResource(sound));
+            clip.open(audioInputStream);
+            clip.start();
+        } catch (Exception e) {
+            System.err.println("Error playing sound: " + e.getMessage());
+        }
     }
     
     void SetUpcards(){
@@ -164,19 +192,16 @@ public class MemoryGame {
             Image cardImg = new ImageIcon(getClass().getResource("./img/" + cardName + ".jpg")).getImage();
             ImageIcon cardImage = new ImageIcon(cardImg.getScaledInstance(cardWidth, cardHeight, java.awt.Image.SCALE_SMOOTH));
 
-            Card card = new Card(cardName, cardImage);
+            Card card = new Card(cardName, cardImage,"/sounds/" + cardName.toLowerCase() + ".wav");
             cardSet.add(card);
         }
-        cardSet.addAll(cardSet); // Add the same set again for pairs
+        cardSet.addAll(cardSet); 
 
         Image cardBackImg = new ImageIcon(getClass().getResource("./img/flag.jpg")).getImage();
         cardBackImage = new ImageIcon(cardBackImg.getScaledInstance(cardWidth, cardHeight, java.awt.Image.SCALE_SMOOTH));
-
-
     }
 
     void ShuffleCards() {
-
         for (int i = 0; i < cardSet.size(); i++) {
             int randomIndex = (int) (Math.random() * cardSet.size());
             Card temp = cardSet.get(i);
@@ -184,8 +209,8 @@ public class MemoryGame {
             cardSet.set(randomIndex, temp);
         }
     }
+    
     void timers() {
-
         if (isFlipping && firstCard != null && secondCard != null) {
             firstCard.setIcon(cardBackImage);
             firstCard = null;
@@ -199,6 +224,5 @@ public class MemoryGame {
             isFlipping = true;
             restartButton.setEnabled(true);
         }
-
     }
 }
